@@ -60,14 +60,13 @@ Fields = str | list[str] | tuple[str, ...]
 
 @dataclass(frozen=True)
 class SelectionWithSemantics:
-    """Wraps a selection with its semantic indexing type information.
+    """Wraps a selection with its indexing semantics.
     
     This preserves the original indexing intent (e.g., orthogonal) alongside
-    the mechanistic transformation (e.g., ix_-transformed arrays) that gets
-    passed through the codec pipeline.
+    the transformation description that gets passed through the codec pipeline.
     """
-    selection: SelectorTuple  # The mechanistic (transformed) selection
-    indexing_type: IndexingType  # The semantic intent
+    selection: SelectorTuple
+    indexing_type: IndexingType
 
 
 class ArrayIndexError(IndexError):

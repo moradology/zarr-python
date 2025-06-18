@@ -481,3 +481,20 @@ def test_invalid_metadata(store: Store) -> None:
             dtype=np.dtype("uint8"),
             fill_value=0,
         )
+
+
+# issue #2834
+def test_setitem_with_oindex() -> None:
+    group = zarr.group(store={}, zarr_format=3)
+    array = group.create_array(
+        name="test_arr",
+        shape=(1, 2, 1),
+        chunks=(1, 2, 1),
+        shards=(1, 2, 1),
+        dtype=np.int32,
+    )
+    zindexer = (np.array([0]), np.array([0, 0]), np.array([0]))
+    new_data = np.full(array.oindex[zindexer].shape, fill_value=1)
+    
+    # This raised a ValueError as the wrong indexer was chosen
+    array.oindex[zindexer] = new_data

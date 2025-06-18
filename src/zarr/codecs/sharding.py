@@ -470,7 +470,7 @@ class ShardingCodec(
                 (
                     _ShardingByteGetter(shard_dict, chunk_coords),
                     chunk_spec,
-                    chunk_selection,
+                    SelectionWithSemantics(chunk_selection, IndexingType.BASIC),
                     out_selection,
                     is_complete_shard,
                 )
@@ -563,7 +563,7 @@ class ShardingCodec(
                 (
                     _ShardingByteGetter(shard_dict, chunk_coords),
                     chunk_spec,
-                    chunk_selection,
+                    SelectionWithSemantics(chunk_selection, IndexingType.BASIC),
                     out_selection,
                     is_complete_shard,
                 )
@@ -602,7 +602,7 @@ class ShardingCodec(
                 (
                     _ShardingByteSetter(shard_builder, chunk_coords),
                     chunk_spec,
-                    chunk_selection,
+                    SelectionWithSemantics(chunk_selection, IndexingType.BASIC),
                     out_selection,
                     is_complete_shard,
                 )
@@ -665,7 +665,7 @@ class ShardingCodec(
                 (
                     _ShardingByteSetter(shard_dict, chunk_coords),
                     chunk_spec,
-                    chunk_selection,
+                    SelectionWithSemantics(chunk_selection, IndexingType.BASIC),
                     out_selection,
                     is_complete_shard,
                 )
