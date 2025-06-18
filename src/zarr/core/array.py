@@ -82,12 +82,14 @@ from zarr.core.indexing import (
     CoordinateSelection,
     Fields,
     Indexer,
+    IndexingType,
     MaskIndexer,
     MaskSelection,
     OIndex,
     OrthogonalIndexer,
     OrthogonalSelection,
     Selection,
+    SelectionWithSemantics,
     VIndex,
     _iter_grid,
     ceildiv,
@@ -1311,13 +1313,27 @@ class AsyncArray(Generic[T_ArrayMetadata]):
             if self.metadata.zarr_format == 2:
                 _config = replace(_config, order=self.order)
 
+            # Determine indexing type for passing through codec pipeline
+            if isinstance(indexer, OrthogonalIndexer):
+                indexing_type = IndexingType.ORTHOGONAL
+            elif isinstance(indexer, BasicIndexer):
+                indexing_type = IndexingType.BASIC
+            elif isinstance(indexer, CoordinateIndexer):
+                indexing_type = IndexingType.COORDINATE
+            elif isinstance(indexer, MaskIndexer):
+                indexing_type = IndexingType.MASK
+            elif isinstance(indexer, BlockIndexer):
+                indexing_type = IndexingType.BLOCK
+            else:
+                indexing_type = IndexingType.BASIC  # fallback
+            
             # reading chunks and decoding them
             await self.codec_pipeline.read(
                 [
                     (
                         self.store_path / self.metadata.encode_chunk_key(chunk_coords),
                         self.metadata.get_chunk_spec(chunk_coords, _config, prototype=prototype),
-                        chunk_selection,
+                        SelectionWithSemantics(chunk_selection, indexing_type) if indexing_type == IndexingType.ORTHOGONAL else chunk_selection,
                         out_selection,
                         is_complete_chunk,
                     )
@@ -1442,13 +1458,27 @@ class AsyncArray(Generic[T_ArrayMetadata]):
         if self.metadata.zarr_format == 2:
             _config = replace(_config, order=self.metadata.order)
 
+        # Determine indexing type for passing through codec pipeline
+        if isinstance(indexer, OrthogonalIndexer):
+            indexing_type = IndexingType.ORTHOGONAL
+        elif isinstance(indexer, BasicIndexer):
+            indexing_type = IndexingType.BASIC
+        elif isinstance(indexer, CoordinateIndexer):
+            indexing_type = IndexingType.COORDINATE
+        elif isinstance(indexer, MaskIndexer):
+            indexing_type = IndexingType.MASK
+        elif isinstance(indexer, BlockIndexer):
+            indexing_type = IndexingType.BLOCK
+        else:
+            indexing_type = IndexingType.BASIC  # fallback
+        
         # merging with existing data and encoding chunks
         await self.codec_pipeline.write(
             [
                 (
                     self.store_path / self.metadata.encode_chunk_key(chunk_coords),
                     self.metadata.get_chunk_spec(chunk_coords, _config, prototype),
-                    chunk_selection,
+                    SelectionWithSemantics(chunk_selection, indexing_type) if indexing_type == IndexingType.ORTHOGONAL else chunk_selection,
                     out_selection,
                     is_complete_chunk,
                 )

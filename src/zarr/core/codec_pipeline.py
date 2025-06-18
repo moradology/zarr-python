@@ -16,7 +16,7 @@ from zarr.abc.codec import (
 )
 from zarr.core.common import ChunkCoords, concurrent_map
 from zarr.core.config import config
-from zarr.core.indexing import SelectorTuple, is_scalar
+from zarr.core.indexing import SelectionWithSemantics, SelectorTuple, is_scalar
 from zarr.registry import register_pipeline
 
 if TYPE_CHECKING:
@@ -279,7 +279,11 @@ class BatchedCodecPipeline(CodecPipeline):
                 chunk_array_batch, batch_info, strict=False
             ):
                 if chunk_array is not None:
-                    tmp = chunk_array[chunk_selection]
+                    # Unwrap selection if it's wrapped with semantics
+                    actual_chunk_selection = chunk_selection
+                    if isinstance(chunk_selection, SelectionWithSemantics):
+                        actual_chunk_selection = chunk_selection.selection
+                    tmp = chunk_array[actual_chunk_selection]
                     if drop_axes != ():
                         tmp = tmp.squeeze(axis=drop_axes)
                     out[out_selection] = tmp
@@ -325,7 +329,11 @@ class BatchedCodecPipeline(CodecPipeline):
             )
         else:
             chunk_array = existing_chunk_array.copy()  # make a writable copy
-        chunk_array[chunk_selection] = chunk_value
+        # Unwrap selection if it's wrapped with semantics
+        actual_chunk_selection = chunk_selection
+        if isinstance(chunk_selection, SelectionWithSemantics):
+            actual_chunk_selection = chunk_selection.selection
+        chunk_array[actual_chunk_selection] = chunk_value
         return chunk_array
 
     async def write_batch(

@@ -33,6 +33,15 @@ if TYPE_CHECKING:
     from zarr.core.chunk_grids import ChunkGrid
     from zarr.core.common import ChunkCoords
 
+
+class IndexingType(Enum):
+    """Enum for different types of indexing operations."""
+    BASIC = "basic"
+    ORTHOGONAL = "orthogonal"
+    COORDINATE = "coordinate"
+    MASK = "mask"
+    BLOCK = "block"
+
 IntSequence = list[int] | npt.NDArray[np.intp]
 ArrayOfIntOrBool = npt.NDArray[np.intp] | npt.NDArray[np.bool_]
 BasicSelector = int | slice | EllipsisType
@@ -47,6 +56,18 @@ SelectionNormalized = tuple[Selector, ...] | ArrayOfIntOrBool
 SelectionWithFields = Selection | str | Sequence[str]
 SelectorTuple = tuple[Selector, ...] | npt.NDArray[np.intp] | slice
 Fields = str | list[str] | tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SelectionWithSemantics:
+    """Wraps a selection with its semantic indexing type information.
+    
+    This preserves the original indexing intent (e.g., orthogonal) alongside
+    the mechanistic transformation (e.g., ix_-transformed arrays) that gets
+    passed through the codec pipeline.
+    """
+    selection: SelectorTuple  # The mechanistic (transformed) selection
+    indexing_type: IndexingType  # The semantic intent
 
 
 class ArrayIndexError(IndexError):
@@ -852,7 +873,6 @@ class OrthogonalIndexer(Indexer):
     chunk_shape: ChunkCoords
     is_advanced: bool
     drop_axes: tuple[int, ...]
-
     def __init__(self, selection: Selection, shape: ChunkCoords, chunk_grid: ChunkGrid) -> None:
         chunk_shape = get_chunk_shape(chunk_grid)
 
@@ -1373,19 +1393,32 @@ def c_order_iter(chunks_per_shard: ChunkCoords) -> Iterator[ChunkCoords]:
 
 
 def get_indexer(
-    selection: SelectionWithFields, shape: ChunkCoords, chunk_grid: ChunkGrid
+    selection: SelectionWithFields, shape: ChunkCoords, chunk_grid: ChunkGrid, indexing_type: IndexingType
 ) -> Indexer:
-    _, pure_selection = pop_fields(selection)
-    if is_pure_fancy_indexing(pure_selection, len(shape)):
-        new_selection = ensure_tuple(selection)
-        new_selection = replace_lists(new_selection)
-        if is_coordinate_selection(new_selection, shape):
-            return CoordinateIndexer(cast("CoordinateSelection", selection), shape, chunk_grid)
-        elif is_mask_selection(new_selection, shape):
-            return MaskIndexer(cast("MaskSelection", selection), shape, chunk_grid)
-        else:
-            raise VindexInvalidSelectionError(new_selection)
-    elif is_pure_orthogonal_indexing(pure_selection, len(shape)):
+    # Use the provided indexing_type to create the correct indexer
+    if indexing_type == IndexingType.COORDINATE:
+        return CoordinateIndexer(cast("CoordinateSelection", selection), shape, chunk_grid)
+    elif indexing_type == IndexingType.MASK:
+        return MaskIndexer(cast("MaskSelection", selection), shape, chunk_grid)
+    elif indexing_type == IndexingType.ORTHOGONAL:
         return OrthogonalIndexer(cast("OrthogonalSelection", selection), shape, chunk_grid)
-    else:
+    elif indexing_type == IndexingType.BLOCK:
+        return BlockIndexer(cast("BasicSelection", selection), shape, chunk_grid)
+    elif indexing_type == IndexingType.BASIC:
         return BasicIndexer(cast("BasicSelection", selection), shape, chunk_grid)
+    else:
+        # Fallback to inference for backward compatibility or unknown types
+        _, pure_selection = pop_fields(selection)
+        if is_pure_fancy_indexing(pure_selection, len(shape)):
+            new_selection = ensure_tuple(selection)
+            new_selection = replace_lists(new_selection)
+            if is_coordinate_selection(new_selection, shape):
+                return CoordinateIndexer(cast("CoordinateSelection", selection), shape, chunk_grid)
+            elif is_mask_selection(new_selection, shape):
+                return MaskIndexer(cast("MaskSelection", selection), shape, chunk_grid)
+            else:
+                raise VindexInvalidSelectionError(new_selection)
+        elif is_pure_orthogonal_indexing(pure_selection, len(shape)):
+            return OrthogonalIndexer(cast("OrthogonalSelection", selection), shape, chunk_grid)
+        else:
+            return BasicIndexer(cast("BasicSelection", selection), shape, chunk_grid)
