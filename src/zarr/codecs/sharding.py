@@ -492,23 +492,24 @@ class ShardingCodec(
         chunks_per_shard = self._get_chunks_per_shard(shard_spec)
         chunk_spec = self._get_chunk_spec(shard_spec)
 
-        # Check if selection is wrapped with semantic information
-        if isinstance(selection, SelectionWithSemantics):
-            actual_selection = selection.selection
-            indexing_type = selection.indexing_type
-            
-            # For orthogonal selections, we need to extract the original 1D arrays
-            # from the ix_-transformed arrays
-            if indexing_type == IndexingType.ORTHOGONAL and isinstance(actual_selection, tuple):
-                # Check if all elements are arrays (not integers or slices)
-                if all(hasattr(s, 'flatten') for s in actual_selection):
-                    # The ix_() transformation creates arrays with ndim == len(shape)
-                    # We need to flatten them back to 1D
-                    original_selection = tuple(arr.flatten() for arr in actual_selection)
-                    actual_selection = original_selection
-        else:
-            actual_selection = selection
-            indexing_type = IndexingType.BASIC  # Default for backward compatibility
+        # Selections should always be wrapped with semantic information
+        if not isinstance(selection, SelectionWithSemantics):
+            raise TypeError(
+                f"Sharding codec expects SelectionWithSemantics, got {type(selection)}"
+            )
+        
+        actual_selection = selection.selection
+        indexing_type = selection.indexing_type
+        
+        # For orthogonal selections, we need to extract the original 1D arrays
+        # from the ix_-transformed arrays
+        if indexing_type == IndexingType.ORTHOGONAL and isinstance(actual_selection, tuple):
+            # Check if all elements are arrays (not integers or slices)
+            if all(hasattr(s, 'flatten') for s in actual_selection):
+                # The ix_() transformation creates arrays with ndim == len(shape)
+                # We need to flatten them back to 1D
+                original_selection = tuple(arr.flatten() for arr in actual_selection)
+                actual_selection = original_selection
         
         indexer = get_indexer(
             actual_selection,
@@ -634,23 +635,24 @@ class ShardingCodec(
             _ShardBuilder.create_empty(chunks_per_shard),
         )
 
-        # Check if selection is wrapped with semantic information
-        if isinstance(selection, SelectionWithSemantics):
-            actual_selection = selection.selection
-            indexing_type = selection.indexing_type
-            
-            # For orthogonal selections, we need to extract the original 1D arrays
-            # from the ix_-transformed arrays
-            if indexing_type == IndexingType.ORTHOGONAL and isinstance(actual_selection, tuple):
-                # Check if all elements are arrays (not integers or slices)
-                if all(hasattr(s, 'flatten') for s in actual_selection):
-                    # The ix_() transformation creates arrays with ndim == len(shape)
-                    # We need to flatten them back to 1D
-                    original_selection = tuple(arr.flatten() for arr in actual_selection)
-                    actual_selection = original_selection
-        else:
-            actual_selection = selection
-            indexing_type = IndexingType.BASIC  # Default for backward compatibility
+        # Selections should always be wrapped with semantic information
+        if not isinstance(selection, SelectionWithSemantics):
+            raise TypeError(
+                f"Sharding codec expects SelectionWithSemantics, got {type(selection)}"
+            )
+        
+        actual_selection = selection.selection
+        indexing_type = selection.indexing_type
+        
+        # For orthogonal selections, we need to extract the original 1D arrays
+        # from the ix_-transformed arrays
+        if indexing_type == IndexingType.ORTHOGONAL and isinstance(actual_selection, tuple):
+            # Check if all elements are arrays (not integers or slices)
+            if all(hasattr(s, 'flatten') for s in actual_selection):
+                # The ix_() transformation creates arrays with ndim == len(shape)
+                # We need to flatten them back to 1D
+                original_selection = tuple(arr.flatten() for arr in actual_selection)
+                actual_selection = original_selection
         
         indexer = list(
             get_indexer(

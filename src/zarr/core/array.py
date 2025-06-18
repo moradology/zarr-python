@@ -1333,7 +1333,7 @@ class AsyncArray(Generic[T_ArrayMetadata]):
                     (
                         self.store_path / self.metadata.encode_chunk_key(chunk_coords),
                         self.metadata.get_chunk_spec(chunk_coords, _config, prototype=prototype),
-                        SelectionWithSemantics(chunk_selection, indexing_type) if indexing_type == IndexingType.ORTHOGONAL else chunk_selection,
+                        SelectionWithSemantics(chunk_selection, indexing_type),
                         out_selection,
                         is_complete_chunk,
                     )
@@ -1478,7 +1478,7 @@ class AsyncArray(Generic[T_ArrayMetadata]):
                 (
                     self.store_path / self.metadata.encode_chunk_key(chunk_coords),
                     self.metadata.get_chunk_spec(chunk_coords, _config, prototype),
-                    SelectionWithSemantics(chunk_selection, indexing_type) if indexing_type == IndexingType.ORTHOGONAL else chunk_selection,
+                    SelectionWithSemantics(chunk_selection, indexing_type),
                     out_selection,
                     is_complete_chunk,
                 )

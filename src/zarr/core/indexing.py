@@ -1395,7 +1395,7 @@ def c_order_iter(chunks_per_shard: ChunkCoords) -> Iterator[ChunkCoords]:
 def get_indexer(
     selection: SelectionWithFields, shape: ChunkCoords, chunk_grid: ChunkGrid, indexing_type: IndexingType
 ) -> Indexer:
-    # Use the provided indexing_type to create the correct indexer
+    """Create an indexer of the specified type."""
     if indexing_type == IndexingType.COORDINATE:
         return CoordinateIndexer(cast("CoordinateSelection", selection), shape, chunk_grid)
     elif indexing_type == IndexingType.MASK:
@@ -1407,18 +1407,4 @@ def get_indexer(
     elif indexing_type == IndexingType.BASIC:
         return BasicIndexer(cast("BasicSelection", selection), shape, chunk_grid)
     else:
-        # Fallback to inference for backward compatibility or unknown types
-        _, pure_selection = pop_fields(selection)
-        if is_pure_fancy_indexing(pure_selection, len(shape)):
-            new_selection = ensure_tuple(selection)
-            new_selection = replace_lists(new_selection)
-            if is_coordinate_selection(new_selection, shape):
-                return CoordinateIndexer(cast("CoordinateSelection", selection), shape, chunk_grid)
-            elif is_mask_selection(new_selection, shape):
-                return MaskIndexer(cast("MaskSelection", selection), shape, chunk_grid)
-            else:
-                raise VindexInvalidSelectionError(new_selection)
-        elif is_pure_orthogonal_indexing(pure_selection, len(shape)):
-            return OrthogonalIndexer(cast("OrthogonalSelection", selection), shape, chunk_grid)
-        else:
-            return BasicIndexer(cast("BasicSelection", selection), shape, chunk_grid)
+        raise ValueError(f"Unknown indexing type: {indexing_type}")
