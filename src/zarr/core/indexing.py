@@ -36,11 +36,13 @@ if TYPE_CHECKING:
 
 class IndexingType(Enum):
     """Enum for different types of indexing operations."""
+
     BASIC = "basic"
     ORTHOGONAL = "orthogonal"
     COORDINATE = "coordinate"
     MASK = "mask"
     BLOCK = "block"
+
 
 IntSequence = list[int] | npt.NDArray[np.intp]
 ArrayOfIntOrBool = npt.NDArray[np.intp] | npt.NDArray[np.bool_]
@@ -61,10 +63,11 @@ Fields = str | list[str] | tuple[str, ...]
 @dataclass(frozen=True)
 class SelectionWithSemantics:
     """Wraps a selection with its indexing semantics.
-    
+
     This preserves the original indexing intent (e.g., orthogonal) alongside
     the transformation description that gets passed through the codec pipeline.
     """
+
     selection: SelectorTuple
     indexing_type: IndexingType
 
@@ -872,6 +875,7 @@ class OrthogonalIndexer(Indexer):
     chunk_shape: ChunkCoords
     is_advanced: bool
     drop_axes: tuple[int, ...]
+
     def __init__(self, selection: Selection, shape: ChunkCoords, chunk_grid: ChunkGrid) -> None:
         chunk_shape = get_chunk_shape(chunk_grid)
 
@@ -1392,7 +1396,10 @@ def c_order_iter(chunks_per_shard: ChunkCoords) -> Iterator[ChunkCoords]:
 
 
 def get_indexer(
-    selection: SelectionWithFields, shape: ChunkCoords, chunk_grid: ChunkGrid, indexing_type: IndexingType
+    selection: SelectionWithFields,
+    shape: ChunkCoords,
+    chunk_grid: ChunkGrid,
+    indexing_type: IndexingType,
 ) -> Indexer:
     """Create an indexer of the specified type."""
     if indexing_type == IndexingType.COORDINATE:
@@ -1400,7 +1407,14 @@ def get_indexer(
     elif indexing_type == IndexingType.MASK:
         return MaskIndexer(cast("MaskSelection", selection), shape, chunk_grid)
     elif indexing_type == IndexingType.ORTHOGONAL:
-        return OrthogonalIndexer(cast("OrthogonalSelection", selection), shape, chunk_grid)
+        # When get_indexer is called with ORTHOGONAL from the sharding codec,
+        # the selection contains ix_-transformed arrays that need to be raveled back to 1D
+        cleaned_selection = (
+            tuple(s.ravel() if hasattr(s, "ravel") else s for s in selection)
+            if isinstance(selection, tuple)
+            else selection
+        )
+        return OrthogonalIndexer(cast("OrthogonalSelection", cleaned_selection), shape, chunk_grid)
     elif indexing_type == IndexingType.BLOCK:
         return BlockIndexer(cast("BasicSelection", selection), shape, chunk_grid)
     elif indexing_type == IndexingType.BASIC:

@@ -498,3 +498,74 @@ def test_setitem_with_oindex() -> None:
     
     # This raised a ValueError as the wrong indexer was chosen
     array.oindex[zindexer] = new_data
+
+
+@pytest.mark.parametrize("store", ["local", "memory", "zip"], indirect=["store"])
+def test_orthogonal_indexing_with_sharding_detailed(store: Store) -> None:
+    """Test orthogonal indexing through sharding with clear, understandable data."""
+    
+    # Create a 6x6 array where each value is row*10 + col
+    # This makes it trivial to verify correctness:
+    # [[ 0,  1,  2,  3,  4,  5],
+    #  [10, 11, 12, 13, 14, 15],
+    #  [20, 21, 22, 23, 24, 25],
+    #  [30, 31, 32, 33, 34, 35],
+    #  [40, 41, 42, 43, 44, 45],
+    #  [50, 51, 52, 53, 54, 55]]
+    
+    shape = (6, 6)
+    chunks = (2, 2)  # 3x3 chunks
+    shards = {"shape": (4, 4), "index_location": "end"}  # 2x2 chunks per shard
+    
+    spath = StorePath(store)
+    arr = zarr.create_array(
+        spath,
+        shape=shape,
+        chunks=chunks,
+        shards=shards,
+        dtype=np.int32,
+    )
+    
+    # Fill with our special pattern
+    data = np.array([[row * 10 + col for col in range(6)] for row in range(6)], dtype=np.int32)
+    arr[:] = data
+    
+    # Select rows 1, 3, 5 and columns 0, 2, 4
+    # This clearly shows we're picking a grid, not diagonal
+    row_indices = [1, 3, 5]
+    col_indices = [0, 2, 4]
+    
+    result = arr.oindex[row_indices, col_indices]
+    
+    # Expected result - a 3x3 grid:
+    # [[10, 12, 14],  # row 1 with cols 0,2,4
+    #  [30, 32, 34],  # row 3 with cols 0,2,4
+    #  [50, 52, 54]]  # row 5 with cols 0,2,4
+    
+    expected = np.array([
+        [10, 12, 14],
+        [30, 32, 34],
+        [50, 52, 54]
+    ], dtype=np.int32)
+    
+    np.testing.assert_array_equal(result, expected)
+    
+    # Also test writing - set all selected cells to 999
+    arr.oindex[row_indices, col_indices] = 999
+    
+    # Verify the write worked for all cells in the grid
+    result_after_write = arr.oindex[row_indices, col_indices]
+    expected_after_write = np.full((3, 3), 999, dtype=np.int32)
+    np.testing.assert_array_equal(result_after_write, expected_after_write)
+    
+    # Verify specific cells were changed
+    assert arr[1, 0] == 999  # was 10
+    assert arr[1, 2] == 999  # was 12
+    assert arr[3, 4] == 999  # was 34
+    assert arr[5, 2] == 999  # was 52
+    
+    # Verify untouched cells remain unchanged
+    assert arr[0, 0] == 0    # untouched
+    assert arr[1, 1] == 11   # untouched (not in column selection)
+    assert arr[2, 2] == 22   # untouched (not in row selection)
+    assert arr[4, 3] == 43   # untouched (not in row selection)

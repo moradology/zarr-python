@@ -1326,7 +1326,7 @@ class AsyncArray(Generic[T_ArrayMetadata]):
                 indexing_type = IndexingType.BLOCK
             else:
                 indexing_type = IndexingType.BASIC  # fallback
-            
+
             # reading chunks and decoding them
             await self.codec_pipeline.read(
                 [
@@ -1471,7 +1471,7 @@ class AsyncArray(Generic[T_ArrayMetadata]):
             indexing_type = IndexingType.BLOCK
         else:
             indexing_type = IndexingType.BASIC  # fallback
-        
+
         # merging with existing data and encoding chunks
         await self.codec_pipeline.write(
             [
